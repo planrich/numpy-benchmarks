@@ -9,9 +9,17 @@ class PythonExtractor(object):
 
     name = 'Python'
 
-    def __init__(self):
+    def __init__(self, target = ''):
         self.re_setup = re.compile('^#setup: (.*)$')
         self.re_run = re.compile('^#run: (.*)$')
+        self.options = ''
+        targetsplit = target.split(':')
+        self.executable = targetsplit[0]
+        self.name = targetsplit[0]
+        if len(targetsplit) >= 2:
+            self.executable = targetsplit[1]
+        if len(targetsplit) >= 3:
+            self.options = targetsplit[2]
 
     def process_lines(self, filename, lines):
         content = []
@@ -41,6 +49,9 @@ class PypyExtractor(PythonExtractor):
 
     name = 'pypy'
 
+class PypyvExtractor(PythonExtractor):
+
+    name = 'pypyv'
 
 class PythranExtractor(PythonExtractor):
 
@@ -55,8 +66,8 @@ class ParakeetExtractor(PythonExtractor):
 
     name = 'parakeet'
 
-    def __init__(self):
-        super(ParakeetExtractor, self).__init__()
+    def __init__(self, target = ''):
+        super(ParakeetExtractor, self).__init__(target)
         self.extra_import = 'import parakeet\n'
         self.decorator = '@parakeet.jit\n'
 
@@ -74,8 +85,8 @@ class NumbaExtractor(ParakeetExtractor):
 
     name = 'numba'
 
-    def __init__(self):
-        super(NumbaExtractor, self).__init__()
+    def __init__(self, target = ''):
+        super(NumbaExtractor, self).__init__(target)
         self.extra_import = 'import numba\n'
         self.decorator = '@numba.jit\n'
 
@@ -84,8 +95,8 @@ class HopeExtractor(ParakeetExtractor):
 
     name = 'hope'
 
-    def __init__(self):
-        super(HopeExtractor, self).__init__()
+    def __init__(self, target = ''):
+        super(HopeExtractor, self).__init__(target)
         self.extra_import = 'import hope\n'
         self.decorator = '@hope.jit\n'
 
@@ -94,7 +105,6 @@ def run(filenames, extractors):
     location = tempfile.mkdtemp(prefix='rundir_', dir='.')
     shelllines = []
     for extractor in extractors:
-        e = extractor()
         for filename in filenames:
             basename = os.path.basename(filename)
             function, _ = os.path.splitext(basename)
@@ -102,10 +112,26 @@ def run(filenames, extractors):
             tmpmodule, _ = os.path.splitext(tmpfilename)
             where = os.path.join(location, tmpfilename)
             try:
-                setup, run, content = e(filename)
-                open(where, 'w').write(content)
-                e.compile(where)
-                shelllines.append('printf "{function} {extractor} " && PYTHONPATH=..:$PYTHONPATH python -m benchit -r 11 -n 40 -s "{setup}; from {module} import {function} ; {run}" "{run}" 2>/dev/null || echo unsupported'.format(setup=setup, module=tmpmodule, function=function, run=run, extractor=extractor.name))
+                setup, run, content = extractor(filename)
+                with open(where, 'w') as fd:
+                    fd.write(content)
+                extractor.compile(where)
+                path = "PYPYLOG=vec-opt-loop,jit-log-opt,jit-backend,jit:logfile PYTHONPATH=..:$PYTHONPATH"
+                path = "PYTHONPATH=..:$PYTHONPATH"
+                shelllines.append('printf "{function} {extractor} in {where} " && '
+                                  '{path} {executable} {options} -m benchit -r 5 -n 1 -v -p \'{function} {extractor}\' -s '
+                                  '"{setup}; from {module} import {function} ; {run}" '
+                                  '"{run}" || echo unsupported' \
+                                     .format(setup=setup,
+                                             module=tmpmodule,
+                                             function=function,
+                                             run=run,
+                                             where=where,
+                                             extractor=extractor.name,
+                                             executable=extractor.executable,
+                                             options=extractor.options,
+                                             path=path)
+                                )
             except:
                 shelllines.append('echo "{function} {extractor} unsupported"'.format(function=function, extractor=extractor.name))
 
@@ -113,7 +139,8 @@ def run(filenames, extractors):
     shelllines = ['#!/bin/sh', 'export OMP_NUM_THREADS=1', 'cd `dirname $0`'] + shelllines
 
     shellscript = os.path.join(location, 'run.sh')
-    open(shellscript, 'w').write('\n'.join(shelllines))
+    with open(shellscript, 'w') as fd:
+        fd.write('\n'.join(shelllines))
     os.chmod(shellscript, stat.S_IXUSR | stat.S_IRUSR)
     return shellscript
 
@@ -127,7 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('benchmarks', nargs='*',
                         help='benchmark to run, default is benchmarks/*',
                         default=glob.glob('benchmarks/*.py'))
-    default_targets=['python', 'pythran', 'parakeet', 'numba', 'pypy', 'hope']
+    default_targets=['python', 'pythran', 'parakeet', 'numba', 'pypy', 'pypyv', 'hope']
     parser.add_argument('-t', action='append', dest='targets', metavar='TARGET',
                         help='target compilers to use, default is %s' % ', '.join(default_targets))
     args = parser.parse_args(sys.argv[1:])
@@ -135,8 +162,10 @@ if __name__ == '__main__':
     if args.targets is None:
         args.targets = default_targets
 
-    conv = lambda t: globals()[t.capitalize() + 'Extractor']
-    args.targets = [conv(t) for t in args.targets]
+    # -t <target>[:<executable>][:<options>]
+    # -t 'pypy:/home/.../pypy:--jit vectorize=1'
+    conv = lambda t: globals()[t.split(':')[0].capitalize() + 'Extractor']
+    args.targets = [conv(t)(t) for t in args.targets]
 
     script = run(args.benchmarks, args.targets)
     os.execl(script, script)

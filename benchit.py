@@ -6,7 +6,6 @@ from timeit import default_timer, default_repeat, Timer
 import numpy
 import sys
 
-
 def main(args=None):
     """Main program, used when run as a script.
 
@@ -24,7 +23,7 @@ def main(args=None):
         args = sys.argv[1:]
     import getopt
     try:
-        opts, args = getopt.getopt(args, "n:s:r:tcvh",
+        opts, args = getopt.getopt(args, "n:s:r:p:tcvh",
                                    ["number=", "setup=", "repeat=",
                                     "time", "clock", "verbose", "help"])
     except getopt.error, err:
@@ -33,11 +32,13 @@ def main(args=None):
         return 2
     timer = default_timer
     stmt = "\n".join(args) or "pass"
-    number = 0  # auto-determine
+    print stmt
+    number = 1  # auto-determine
     setup = []
     repeat = default_repeat
     verbose = 0
     precision = 3
+    name = ''
     for o, a in opts:
         if o in ("-n", "--number"):
             number = int(a)
@@ -47,6 +48,8 @@ def main(args=None):
             repeat = int(a)
             if repeat <= 0:
                 repeat = 1
+        if o in ("-p",):
+            name = a
         if o in ("-t", "--time"):
             timer = time.time
         if o in ("-c", "--clock"):
@@ -58,6 +61,9 @@ def main(args=None):
         if o in ("-h", "--help"):
             print __doc__,
             return 0
+    if name.startswith("som"):
+        number = 1
+    print 'running repeat: %d number: %d' % (repeat, number)
     setup = "\n".join(setup) or "pass"
     # Include the current directory, so that local imports work (sys.path
     # contains the directory of this script, rather than the current
@@ -84,13 +90,14 @@ def main(args=None):
         t.print_exc()
         return 1
     if verbose:
-        print "raw times:", " ".join(["%.*g" % (precision, x) for x in r])
-    r = [int(x * 1e6 / number) for x in r]
+        print "raw times:", " ".join(["%.*g" % (precision, x) for x in sorted(r)])
+    #r = [int(x * 1e6 / number) for x in r]
     best = min(r)
-    average = int(numpy.average(r))
-    std = int(numpy.std(r))
+    average = numpy.mean(r)
+    std = numpy.std(r)
 
-    print best, average, std
+    print '%s, %.4f, %.4f, %.4f' % (name, average, std, best)
+    print '---'
 
 if __name__ == "__main__":
     sys.exit(main())
