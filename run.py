@@ -117,9 +117,9 @@ def run(filenames, extractors):
                     fd.write(content)
                 extractor.compile(where)
                 path = "PYPYLOG=vec-opt-loop,jit-log-opt,jit-backend,jit:logfile PYTHONPATH=..:$PYTHONPATH"
-                path = "PYTHONPATH=..:$PYTHONPATH"
+                #path = "PYTHONPATH=..:$PYTHONPATH"
                 shelllines.append('printf "{function} {extractor} in {where} " && '
-                                  '{path} {executable} {options} -m benchit -r 5 -n 1 -v -p \'{function} {extractor}\' -s '
+                                  '{path} {executable} {options} -m benchit -r 5 -n 500 -v -p \'{function} {extractor}\' -s '
                                   '"{setup}; from {module} import {function} ; {run}" '
                                   '"{run}" || echo unsupported' \
                                      .format(setup=setup,
