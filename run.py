@@ -160,7 +160,7 @@ if __name__ == '__main__':
                                      epilog="It's a megablast!")
     parser.add_argument('benchmarks', nargs='*',
                         help='benchmark to run, default is benchmarks/*',
-                        default=glob.glob('benchmarks/*.py'))
+                        default=[])
     default_targets=['python', 'pythran', 'parakeet', 'numba', 'pypy', 'pypyv', 'hope']
     parser.add_argument('-t', action='append', dest='targets', metavar='TARGET',
                         help='target compilers to use, default is %s' % ', '.join(default_targets))
@@ -187,12 +187,14 @@ if __name__ == '__main__':
     try:
         with open(args.benchmarkfile, 'r') as fd:
             for line in fd.read().splitlines():
+                if line.startswith("#"):
+                    continue
                 l,r,n = line.split(' ')
                 lines.append(l)
                 repeat.append(r)
                 number.append(n)
     except:
         pass
-
-    script = run(args.benchmarks + ['benchmark/%s.py' % l for l in lines], args.targets, repeat, number, args.debug)
+    benchmarks = ['benchmarks/%s.py' % l for l in lines]
+    script = run(args.benchmarks + benchmarks, args.targets, repeat, number, args.debug)
     os.execl(script, script)

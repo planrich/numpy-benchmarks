@@ -96,7 +96,11 @@ def main(args=None):
     best = min(r)
     average = numpy.mean(r)
     std = numpy.std(r)
-
+    #
+    with open('../run.txt', 'a') as fd:
+        fd.write(name + " raw: " + " ".join(["%.4f" % x for x in sorted(r)]) + "\n")
+        fd.write('%s, %.4f, %.4f, %.4f\n---\n' % (name, average, std, best))
+    #
     print '%s, %.4f, %.4f, %.4f' % (name, average, std, best)
     print '---'
 
