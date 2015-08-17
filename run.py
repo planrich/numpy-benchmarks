@@ -164,9 +164,9 @@ if __name__ == '__main__':
     default_targets=['python', 'pythran', 'parakeet', 'numba', 'pypy', 'pypyv', 'hope']
     parser.add_argument('-t', action='append', dest='targets', metavar='TARGET',
                         help='target compilers to use, default is %s' % ', '.join(default_targets))
-    parser.add_argument('-f', action='store', dest='benchmarkfile', metavar='FILE',
+    parser.add_argument('-f', action='store', dest='benchmarkfile',
                         help='a file that specifies which benchmarks to run.')
-    parser.add_argument('-d', action='store_true', dest='debug', metavar='DEBUG',
+    parser.add_argument('-d', action='store_true', dest='debug',
                         help='specify if debug output should be printed (pypy)')
     args = parser.parse_args(sys.argv[1:])
 
@@ -194,5 +194,5 @@ if __name__ == '__main__':
     except:
         pass
 
-    script = run(args.benchmarks + ['benchmark/%s.py' % (l[0], ) for l in lines.split(' ')], args.targets, repeat, number, args.debug)
+    script = run(args.benchmarks + ['benchmark/%s.py' % l for l in lines], args.targets, repeat, number, args.debug)
     os.execl(script, script)
