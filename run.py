@@ -101,11 +101,13 @@ class HopeExtractor(ParakeetExtractor):
         self.decorator = '@hope.jit\n'
 
 
-def run(filenames, extractors):
+def run(filenames, extractors, repeats, numbers, debug=False):
     location = tempfile.mkdtemp(prefix='rundir_', dir='.')
     shelllines = []
     for extractor in extractors:
-        for filename in filenames:
+        for i,filename in enumerate(filenames):
+            repeat = repeats[i]
+            number = numbers[i]
             basename = os.path.basename(filename)
             function, _ = os.path.splitext(basename)
             tmpfilename = '_'.join([extractor.name, basename])
@@ -116,10 +118,13 @@ def run(filenames, extractors):
                 with open(where, 'w') as fd:
                     fd.write(content)
                 extractor.compile(where)
-                path = "PYPYLOG=vec-opt-loop,jit-log-opt,jit-backend,jit:logfile PYTHONPATH=..:$PYTHONPATH"
-                #path = "PYTHONPATH=..:$PYTHONPATH"
+                if debug:
+                    path = "PYPYLOG=vec-opt-loop,jit-log-opt,jit-backend,jit:/tmp/%slogfile PYTHONPATH=..:$PYTHONPATH" \
+                            % (extractor.name)
+                else:
+                    path = "PYTHONPATH=..:$PYTHONPATH"
                 shelllines.append('printf "{function} {extractor} in {where} " && '
-                                  '{path} {executable} {options} -m benchit -r 5 -n 500 -v -p \'{function} {extractor}\' -s '
+                                  '{path} {executable} {options} -m benchit -r {repeat} -n {number} -v -p \'{function} {extractor}\' -s '
                                   '"{setup}; from {module} import {function} ; {run}" '
                                   '"{run}" || echo unsupported' \
                                      .format(setup=setup,
@@ -130,7 +135,9 @@ def run(filenames, extractors):
                                              extractor=extractor.name,
                                              executable=extractor.executable,
                                              options=extractor.options,
-                                             path=path)
+                                             path=path,
+                                             repeat=repeat,
+                                             number=number)
                                 )
             except:
                 shelllines.append('echo "{function} {extractor} unsupported"'.format(function=function, extractor=extractor.name))
@@ -157,6 +164,10 @@ if __name__ == '__main__':
     default_targets=['python', 'pythran', 'parakeet', 'numba', 'pypy', 'pypyv', 'hope']
     parser.add_argument('-t', action='append', dest='targets', metavar='TARGET',
                         help='target compilers to use, default is %s' % ', '.join(default_targets))
+    parser.add_argument('-f', action='store', dest='benchmarkfile', metavar='FILE',
+                        help='a file that specifies which benchmarks to run.')
+    parser.add_argument('-d', action='store_true', dest='debug', metavar='DEBUG',
+                        help='specify if debug output should be printed (pypy)')
     args = parser.parse_args(sys.argv[1:])
 
     if args.targets is None:
@@ -167,5 +178,21 @@ if __name__ == '__main__':
     conv = lambda t: globals()[t.split(':')[0].capitalize() + 'Extractor']
     args.targets = [conv(t)(t) for t in args.targets]
 
-    script = run(args.benchmarks, args.targets)
+    lines = []
+    repeat = []
+    number = []
+    for b in args.benchmarks:
+        repeat.append(5)
+        number.append(1)
+    try:
+        with open(args.benchmarkfile, 'r') as fd:
+            for line in fd.read().splitlines():
+                l,r,n = line.split(' ')
+                lines.append(l)
+                repeat.append(r)
+                number.append(n)
+    except:
+        pass
+
+    script = run(args.benchmarks + ['benchmark/%s.py' % (l[0], ) for l in lines.split(' ')], args.targets, repeat, number, args.debug)
     os.execl(script, script)

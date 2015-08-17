@@ -84,13 +84,14 @@ def main(args=None):
                 print "%d loops -> %.*g secs" % (number, precision, x)
             if x >= 0.2:
                 break
+    t.repeat(1, 100) # warm up the jit for pypy
     try:
         r = t.repeat(repeat, number)
     except:
         t.print_exc()
         return 1
     if verbose:
-        print "raw times:", " ".join(["%.*g" % (precision, x) for x in sorted(r)])
+        print "raw times:", " ".join(["%.4f" % x for x in sorted(r)])
     #r = [int(x * 1e6 / number) for x in r]
     best = min(r)
     average = numpy.mean(r)
