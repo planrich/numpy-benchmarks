@@ -61,8 +61,6 @@ def main(args=None):
         if o in ("-h", "--help"):
             print __doc__,
             return 0
-    if name.startswith("som"):
-        number = 1
     print 'running repeat: %d number: %d' % (repeat, number)
     setup = "\n".join(setup) or "pass"
     # Include the current directory, so that local imports work (sys.path
