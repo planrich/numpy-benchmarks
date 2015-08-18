@@ -14,5 +14,5 @@ def wdist(A, B, W):
     for ii in xrange(m):
         for jj in xrange(n):
             wdiff = (A[:,ii] - B[:,jj]) / W[:,ii]
-            D[ii,jj] = np.sqrt((wdiff**2).sum())
+            D[ii,jj] = np.sqrt((wdiff*wdiff).sum())
     return D

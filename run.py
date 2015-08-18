@@ -181,9 +181,15 @@ if __name__ == '__main__':
     lines = []
     repeat = []
     number = []
-    for b in args.benchmarks:
-        repeat.append(5)
-        number.append(1)
+    for i,b in enumerate(args.benchmarks):
+        if ":" in b and len(b.split(":")) == 3:
+            b, r, n = b.split(":")
+            args.benchmarks[i] = b
+            repeat.append(int(r))
+            number.append(int(n))
+        else:
+            repeat.append(5)
+            number.append(1)
     try:
         with open(args.benchmarkfile, 'r') as fd:
             for line in fd.read().splitlines():
